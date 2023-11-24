@@ -1,146 +1,266 @@
 #include <iostream>
-#include <vector>
-#include <algorithm>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>    
 
-// Contact class definition
-class Contact {
-public:
+struct Contact {
     std::string name;
-    std::string phone;
+    std::string phoneNumber;
     std::string address;
-    std::string category;
-    bool privateEntry;
-
-    // Constructor to initialize contact attributes
-    Contact(const std::string& n, const std::string& p, const std::string& a, const std::string& c, bool privacy)
-        : name(n), phone(p), address(a), category(c), privateEntry(privacy) {}
 };
 
-// Phonebook class definition
-class Phonebook {
-private:
-    std::vector<Contact> contacts;
-
+class User {
 public:
-    // Function to add a new contact to the phonebook
-    void addContact(const Contact& contact) {
-        contacts.push_back(contact);
-        std::cout << "Contact added successfully.\n";
-    }
+    User() = default;
 
-    // Function to search for a contact based on name or phone number
-    void searchContact(const std::string& searchKey) {
-        bool found = false;
+    User(std::string username) : username(std::move(username)) {}
 
-        for (const auto& contact : contacts) {
-            if (!contact.privateEntry && (contact.name.find(searchKey) != std::string::npos || contact.phone.find(searchKey) != std::string::npos)) {
-                // Display contact details
-                found = true;
+    bool addContact(const Contact& contact) {
+       
+        if (!isValidPhoneNumber(contact.phoneNumber)) {
+            std::cout << "Invalid phone number. Phone number must have exactly 10 digits.\n";
+            return false;
+        }
+
+      
+            for (const auto& pair : contacts) {
+                const Contact& existingContact = pair.second;
+                if (existingContact.name == contact.name &&
+                    existingContact.phoneNumber == contact.phoneNumber &&
+                    existingContact.address == contact.address) {
+                    std::cout << "Contact with the same attributes already exists.\n";
+                    return false;
+                }
             }
+
+        contacts[contact.phoneNumber] = contact;
+        uniquePhoneNumbers.insert(contact.phoneNumber);
+        std::cout << "Contact added successfully.\n";
+        return true;
+    }
+
+    void viewContacts() const {
+        if (contacts.empty()) {
+            std::cout << "No contacts available.\n";
+            return;
         }
 
-        if (!found) {
-            std::cout << "Contact not found.\n";
+        for (const auto& pair : contacts) {
+            displayContact(pair.second);
         }
     }
 
-    // Function to update contact details
-    void updateContact(const std::string& name, const std::string& newPhone, const std::string& newAddress, const std::string& newCategory) {
-        auto it = std::find_if(contacts.begin(), contacts.end(), [&](const Contact& c) { return c.name == name; });
+    void viewUniqueContacts() const {
+        if (uniquePhoneNumbers.empty()) {
+            std::cout << "No unique contacts available.\n";
+            return;
+        }
 
+        std::cout << "Unique Contacts (Phone Numbers):\n";
+        for (const auto& phoneNumber : uniquePhoneNumbers) {
+            std::cout << phoneNumber << "\n";
+        }
+    }
+
+    void viewContactByPhoneNumber(const std::string& phoneNumber) const {
+        auto it = contacts.find(phoneNumber);
         if (it != contacts.end()) {
-            it->phone = newPhone;
-            it->address = newAddress;
-            it->category = newCategory;
-            std::cout << "Contact updated successfully.\n";
+            displayContact(it->second);
         } else {
             std::cout << "Contact not found.\n";
         }
     }
 
-    // Additional functions for managing contacts
+    void viewContactsByName(const std::string& name) const {
+        bool found = false;
+        for (const auto& pair : contacts) {
+            const Contact& contact = pair.second;
+            if (contact.name == name) {
+                displayContact(contact);
+                found = true;
+            }
+        }
 
+        if (!found) {
+            std::cout << "No contacts found with the given name.\n";
+        }
+    }
+
+    void modifyContact(const std::string& phoneNumber, const Contact& modifiedContact) {
+        auto it = contacts.find(phoneNumber);
+        if (it != contacts.end()) {
+            it->second = modifiedContact;
+            std::cout << "Contact modified successfully.\n";
+        } else {
+            std::cout << "Contact not found.\n";
+        }
+    }
+
+    void deleteContact(const std::string& phoneNumber) {
+        auto it = contacts.find(phoneNumber);
+        if (it != contacts.end()) {
+            contacts.erase(it);
+            uniquePhoneNumbers.erase(phoneNumber);
+            std::cout << "Contact deleted successfully.\n";
+        } else {
+            std::cout << "Contact not found.\n";
+        }   
+    }
+
+    std::string getUsername() const {
+        return username;
+    }
+
+private:
+    std::string username;
+    std::unordered_map<std::string, Contact> contacts;
+    std::unordered_set<std::string> uniquePhoneNumbers;
+
+    void displayContact(const Contact& contact) const {
+        std::cout << "Name: " << contact.name << "\n";
+        std::cout << "Phone Number: " << contact.phoneNumber << "\n";
+        std::cout << "Address: " << contact.address << "\n\n";
+    }
+
+    static bool isValidPhoneNumber(const std::string& phoneNumber) {
+        return phoneNumber.length() == 10 && std::all_of(phoneNumber.begin(), phoneNumber.end(), ::isdigit);
+    }
 };
 
-// Main function
+class Administrator {
+public:
+    void viewAllContacts(const std::unordered_map<std::string, User>& users) const {
+        if (users.empty()) {
+            std::cout << "No users available.\n";
+            return;
+        }
+
+        for (const auto& pair : users) {
+            std::cout << "User: " << pair.first << "\n";
+            pair.second.viewContacts();
+        }
+    }
+};
+
+void printMenu() {
+    std::cout << "\n1. Add Contact\n"
+              << "2. View Contacts\n"
+              << "3. View Unique Contacts\n"
+              << "4. View Contact by Phone Number\n"
+              << "5. View Contacts by Name\n"
+              << "6. Modify Contact\n"
+              << "7. Delete Contact\n"
+              << "8. View All Contacts (Admin)\n"
+              << "9. Exit\n";
+}
+
 int main() {
-    Phonebook phonebook;
+    std::unordered_map<std::string, User> users;
+    Administrator admin;
 
-    int choice;
-    do {
-        // Display menu
-        std::cout << "\nPhonebook Directory\n";
-        std::cout << "1. Add Contact\n";
-        std::cout << "2. Search Contact\n";
-        std::cout << "3. Update Contact\n";
-        std::cout << "4. Exit\n";
+    while (true) {
+        std::cout << "\nEnter username or type 'admin' for admin access: ";
+        std::string username;
+        std::cin >> username;
+
+        if (username == "admin") {
+            std::cout << "\nAdmin View:\n";
+            admin.viewAllContacts(users);
+            continue;
+        }
+
+        auto userIt = users.find(username);
+        User* currentUser = nullptr;
+
+        if (userIt == users.end()) {
+            users[username] = User(username);
+            currentUser = &users[username];
+        } else {
+            currentUser = &userIt->second;
+        }
+
+        printMenu();
+
+        int choice;
         std::cout << "Enter your choice: ";
-
-        // Get user choice
         std::cin >> choice;
-        std::cin.ignore(); // Consume the newline character left in the buffer
 
         switch (choice) {
             case 1: {
-                // Adding a new contact
-                std::string name, phone, address, category;
-                bool privacy;
-
+                Contact newContact;
                 std::cout << "Enter Name: ";
-                std::getline(std::cin, name);
-
-                std::cout << "Enter Phone: ";
-                std::getline(std::cin, phone);
-
+                std::cin.ignore(); 
+                std::getline(std::cin, newContact.name);
+                std::cout << "Enter Phone Number: ";
+                std::cin >> newContact.phoneNumber;
                 std::cout << "Enter Address: ";
-                std::getline(std::cin, address);
+                std::cin.ignore();
+                std::getline(std::cin, newContact.address);
 
-                std::cout << "Enter Category: ";
-                std::getline(std::cin, category);
-
-                std::cout << "Is this a private entry? (1 for yes, 0 for no): ";
-                std::cin >> privacy;
-                std::cin.ignore(); // Consume the newline character left in the buffer
-
-                phonebook.addContact(Contact(name, phone, address, category, privacy));
+                if (!currentUser->addContact(newContact)) {
+                    
+                    continue;
+                }
                 break;
             }
-            case 2: {
-                // Searching for a contact
-                std::string searchKey;
-                std::cout << "Search for a contact (name or phone number): ";
-                std::getline(std::cin, searchKey);
-                phonebook.searchContact(searchKey);
+            case 2:
+                currentUser->viewContacts();
+                break;
+            case 3:
+                currentUser->viewUniqueContacts();
+                break;
+            case 4: {
+                std::string phoneNumber;
+                std::cout << "Enter Phone Number to View: ";
+                std::cin >> phoneNumber;
+                currentUser->viewContactByPhoneNumber(phoneNumber);
                 break;
             }
-            case 3: {
-                // Updating contact details
-                std::string name, newPhone, newAddress, newCategory;
-
-                std::cout << "Enter the name of the contact to update: ";
+            case 5: {
+                std::string name;
+                std::cout << "Enter Name to View Contacts: ";
+                std::cin.ignore();
                 std::getline(std::cin, name);
-
-                std::cout << "Enter the new phone number: ";
-                std::getline(std::cin, newPhone);
-
-                std::cout << "Enter the new address: ";
-                std::getline(std::cin, newAddress);
-
-                std::cout << "Enter the new category: ";
-                std::getline(std::cin, newCategory);
-
-                phonebook.updateContact(name, newPhone, newAddress, newCategory);
+                currentUser->viewContactsByName(name);
                 break;
             }
-            case 4:
-                // Exit the program
-                std::cout << "Exiting the Phonebook Directory. Goodbye!\n";
-                break;
-            default:
-                std::cout << "Invalid choice. Please try again.\n";
-        }
+            case 6: {
+                std::string phoneNumber;
+                std::cout << "Enter Phone Number to Modify: ";
+                std::cin >> phoneNumber;
 
-    } while (choice != 4);
+                Contact modifiedContact;
+                std::cout << "Enter Modified Name: ";
+                std::cin.ignore();
+                std::getline(std::cin, modifiedContact.name);
+                std::cout << "Enter Modified Phone Number: ";
+                std::cin >> modifiedContact.phoneNumber;
+                std::cout << "Enter Modified Address: ";
+                std::cin.ignore();
+                std::getline(std::cin, modifiedContact.address);
+
+                currentUser->modifyContact(phoneNumber, modifiedContact);
+                break;
+            }
+            case 7: {
+                std::string phoneNumber;
+                std::cout << "Enter Phone Number to Delete: ";
+                std::cin >> phoneNumber;
+
+                currentUser->deleteContact(phoneNumber);
+                break;
+            }
+            case 8:
+               
+                break;
+            case 9:
+                std::cout << "Exiting the program.\n";
+                return 0;
+            default:
+                std::cout << "Invalid choice. Try again.\n";
+        }
+    }
 
     return 0;
 }
